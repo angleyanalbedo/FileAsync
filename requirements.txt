@@ -2,3 +2,5 @@ PyQt5>=5.15.0
 paramiko>=2.7.2
 webdavclient3>=3.14.5
 PyInstaller
+
+requests~=2.32.3
