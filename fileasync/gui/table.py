@@ -224,6 +224,15 @@ class FileSyncApp(QtWidgets.QMainWindow):
         button_layout.addWidget(add_button)
         button_layout.addStretch()  # 添加弹性空间
 
+        # 全部执行按钮
+        execute_all_button = QtWidgets.QPushButton("全部执行")
+        execute_all_button.setMinimumWidth(120)  # 设置最小宽度
+        execute_all_button.setMinimumHeight(36)  # 设置最小高度
+        execute_all_button.clicked.connect(self.execute_all_tasks)
+        button_layout.addWidget(execute_all_button)
+
+        button_layout.addStretch()  # 添加弹性空间
+
         # 添加底部布局
         layout.addLayout(button_layout)
 
@@ -248,6 +257,10 @@ class FileSyncApp(QtWidgets.QMainWindow):
             }
         """)
 
+    def execute_all_tasks(self):
+        """执行所有任务"""
+        for task in self.config_manager.get_sync_tasks():
+            self.start_task(task)
     def _add_task_to_table(self, row: int, task: dict):
         """将任务添加到表格中"""
         # 设置任务信息
