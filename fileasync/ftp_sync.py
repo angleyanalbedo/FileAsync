@@ -1,3 +1,4 @@
+import os
 from ftplib import FTP
 
 def sync_ftp(source_dir, target_dir, server, username, password):
