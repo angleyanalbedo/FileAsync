@@ -1,1 +1,5 @@
 /log/
+/fileasync/__pycache__
+/log
+/fileasync/gui/__pycache__
+/fileasync/dialog/__pycache__
