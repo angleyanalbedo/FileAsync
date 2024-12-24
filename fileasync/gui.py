@@ -1,36 +1,94 @@
+import json
+import os
+
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtWidgets import QFileDialog, QMessageBox, QSystemTrayIcon, QMenu
-from sync import sync_local
-from ftp_sync import sync_ftp
-from sftp_sync import sync_sftp
-from webdav_sync import sync_webdav
+from .sync import sync_local
+from .ftp_sync import sync_ftp
+from .sftp_sync import sync_sftp
+from .webdav_sync import sync_webdav
+from qt_material import apply_stylesheet
+
+from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5.QtWidgets import QFileDialog, QMessageBox, QSystemTrayIcon, QMenu, QListWidgetItem
+from .sync import sync_local
+from .ftp_sync import sync_ftp
+from .sftp_sync import sync_sftp
+from .webdav_sync import sync_webdav
+from qt_material import apply_stylesheet
 
 class FileSyncApp(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.tasks = []
+        self.tasks = self.load_tasks()
         self.create_tray_icon()
+        self.apply_styles()
+        self.update_task_list()
+
+    def load_tasks(self):
+        if os.path.exists("tasks.json"):
+            with open("tasks.json", "r") as file:
+                return json.load(file)
+        return []
+    def save_tasks(self):
+        with open("tasks.json", "w") as file:
+            json.dump(self.tasks, file, indent=4)
+
+    def apply_styles(self):
+        apply_stylesheet(self, theme='dark_teal.xml')
 
     def initUI(self):
         self.setWindowTitle("文件同步工具")
-        self.setGeometry(100, 100, 800, 500)
+        self.resize(800, 500)
+
+        central_widget = QtWidgets.QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
 
         # Task list
-        self.task_list = QtWidgets.QListWidget(self)
-        self.task_list.setGeometry(20, 20, 760, 300)
+        self.task_list = QtWidgets.QListWidget()
+        layout.addWidget(self.task_list)
 
-        # Add task button
-        self.add_task_button = QtWidgets.QPushButton(self)
-        self.add_task_button.setText("添加任务")
-        self.add_task_button.setGeometry(20, 350, 100, 30)
+        button_layout = QtWidgets.QHBoxLayout()
+        layout.addLayout(button_layout)
+
+        # Add task button (circular with plus sign)
+        self.add_task_button = QtWidgets.QPushButton("+")
+        self.add_task_button.setFixedSize(60, 60)
+        self.add_task_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        border-radius: 30px;
+                        font-size: 24px;
+                    }
+                    QPushButton:hover {
+                        background-color: #45a049;
+                    }
+                """)
         self.add_task_button.clicked.connect(self.add_task)
+        button_layout.addWidget(self.add_task_button)
 
-        # Execute tasks button
-        self.execute_tasks_button = QtWidgets.QPushButton(self)
-        self.execute_tasks_button.setText("执行任务")
-        self.execute_tasks_button.setGeometry(140, 350, 100, 30)
-        self.execute_tasks_button.clicked.connect(self.execute_tasks)
+        # Execute all tasks button
+        self.execute_all_button = QtWidgets.QPushButton("全部执行")
+        self.execute_all_button.setFixedSize(100, 30)
+        self.execute_all_button.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        font-size: 16px;
+                    }
+                    QPushButton:hover {
+                        background-color: #45a049;
+                    }
+                """)
+        self.execute_all_button.clicked.connect(self.execute_tasks)
+        button_layout.addWidget(self.execute_all_button)
+
+        button_layout.addStretch()
 
     def create_tray_icon(self):
         # System tray icon
@@ -41,7 +99,7 @@ class FileSyncApp(QtWidgets.QMainWindow):
         # Tray icon menu
         tray_menu = QMenu()
         restore_action = tray_menu.addAction("恢复")
-        restore_action.triggered.connect(self.show_normal)
+        restore_action.triggered.connect(self.showNormal)
         quit_action = tray_menu.addAction("退出")
         quit_action.triggered.connect(QtWidgets.qApp.quit)
         self.tray_icon.setContextMenu(tray_menu)
@@ -53,7 +111,7 @@ class FileSyncApp(QtWidgets.QMainWindow):
 
     def on_tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.DoubleClick:
-            self.show_normal()
+            self.showNormal()
 
     def closeEvent(self, event):
         if self.isVisible():
@@ -71,7 +129,55 @@ class FileSyncApp(QtWidgets.QMainWindow):
         if task_dialog.exec_() == QtWidgets.QDialog.Accepted:
             task = task_dialog.get_task()
             self.tasks.append(task)
-            self.task_list.addItem(f"源: {task['source']} -> 目标: {task['target']} (协议: {task['protocol']})")
+            self.add_task_item(task)
+            self.save_tasks()
+
+    def add_task_item(self, task):
+        item_widget = QtWidgets.QWidget()
+        item_layout = QtWidgets.QHBoxLayout()
+
+        task_label = QtWidgets.QLabel(
+            f"Source: {task['source']} -> Target: {task['target']} (Protocol: {task['protocol']})")
+        item_layout.addWidget(task_label)
+
+        edit_button = QtWidgets.QPushButton()
+        edit_button.setIcon(QtGui.QIcon("edit_icon.png"))
+        edit_button.setIconSize(QtCore.QSize(24, 24))
+        edit_button.setStyleSheet("border: none;")
+        edit_button.clicked.connect(lambda: self.edit_task(task))
+        item_layout.addWidget(edit_button)
+
+        delete_button = QtWidgets.QPushButton()
+        delete_button.setIcon(QtGui.QIcon("delete_icon.png"))
+        delete_button.setIconSize(QtCore.QSize(24, 24))
+        delete_button.setStyleSheet("border: none;")
+        delete_button.clicked.connect(lambda: self.delete_task(task))
+        item_layout.addWidget(delete_button)
+
+        item_widget.setLayout(item_layout)
+        list_item = QListWidgetItem(self.task_list)
+        list_item.setSizeHint(item_widget.sizeHint())
+        self.task_list.addItem(list_item)
+        self.task_list.setItemWidget(list_item, item_widget)
+
+    def edit_task(self, task):
+        task_dialog = TaskDialog(self, task)
+        if task_dialog.exec_() == QtWidgets.QDialog.Accepted:
+            index = self.tasks.index(task)
+            self.tasks[index] = task_dialog.get_task()
+            self.update_task_list()
+            self.save_tasks()
+
+    def delete_task(self, task):
+        index = self.tasks.index(task)
+        del self.tasks[index]
+        self.update_task_list()
+        self.save_tasks()
+
+    def update_task_list(self):
+        self.task_list.clear()
+        for task in self.tasks:
+            self.add_task_item(task)
 
     def execute_tasks(self):
         for task in self.tasks:
@@ -94,6 +200,8 @@ class FileSyncApp(QtWidgets.QMainWindow):
                 QMessageBox.critical(self, "错误", "不支持的协议")
 
         QMessageBox.information(self, "完成", "所有任务已完成")
+
+
 
 class TaskDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
